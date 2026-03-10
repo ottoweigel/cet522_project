@@ -75,7 +75,16 @@ col6.metric("City of Spokane, Median Income", "$86,206")
 # ----------------------------
 # Tabs
 # ----------------------------
-tab1, tab2, tab3 = st.tabs(["Maps", "ML Model", "Data and Summary",])
+tab1, tab2, tab3 = st.tabs(["Visualizing Data with Maps", "Machine Learning and Regression", "Summary",])
+
+# selects data frame for analysis
+if (agg_map == "Grid"):
+    data = GRID_DATA
+else:
+    data = CENSUS_DATA
+
+if list(set(["POP_DENSITY_aw", "log_POP_DENSITY_aw", 'MED_HH_INCOME_aw']) & set(data.columns)):
+    data.rename(columns={"POP_DENSITY_aw":"POP_DENSITY", "log_POP_DENSITY_aw":"log_POP_DENSITY", "MED_HH_INCOME_aw":"MED_HH_INCOME"}, inplace=True)
 
 # ----------------------------
 # Tab 1
@@ -85,7 +94,7 @@ with tab1:
     def make_map_from(value, title, df):
         minx, miny, maxx, maxy = df.total_bounds
         m = folium.Map(location=[((maxy+miny)/2), ((maxx+minx)/2)], zoom_start=9)
-        m.fit_bounds([[miny, minx], [maxy, maxx]]) 
+        m.fit_bounds([[miny, minx], [maxy, maxx]])
         
         folium.Choropleth(
             geo_data=df.dropna(subset=value),
@@ -120,7 +129,6 @@ with tab1:
         ).add_to(m)
         cmap.add_to(m)
 
-
         st_folium(m, width=600, height=550, key=str(df.count())+"_map")
         
     
@@ -133,46 +141,43 @@ with tab1:
                 return "063"
             case _:
                 return "no id implemented"
+    
+
     st.subheader("Let's visualize data with maps!")
-
-    # ----------------------------
-    # MAPS OF the street data
-    # ----------------------------
-    #TODO ADD SLIDE for minimum count value
-    #TODO ADD switch for log values
-    if ("Seattle" in agg_city):
-        max = seattle_micro_streets["count"].max()
-        make_line_map_from("count", "title", seattle_micro_streets[seattle_micro_streets["count"]>max/10])
-    if ("Spokane" in agg_city):
-        max = spokane_micro_streets["count"].max()
-        make_line_map_from("count", "title", spokane_micro_streets[spokane_micro_streets["count"]>max/10])
-
-
-    # ----------------------------
-    # MAPS OF the census/grid data
-    # ----------------------------
-
-    # if a city is selected:
+    c11, c12 = st.columns(2)
     if (agg_city):
-        # selects data frame
-        if (agg_map == "Grid"):
-            data = GRID_DATA
-        else:
-            data = CENSUS_DATA
-        
-        # allow the user to pick a variable
-        available_variables = ["max_count", "avg_count", "log_max_count", "log_avg_count", "POP_DENSITY_aw", "log_POP_DENSITY_aw","POP_DENSITY", "log_POP_DENSITY"]
-        available_variables = list(set(available_variables) & set(data.columns))
-        agg_variable = st.selectbox(
-            "Which variable do you want to inspect?",
-            available_variables
-        )
-        # maps each city selected
-        for city in agg_city:
+        # ----------------------------
+        # MAPS OF the street data
+        # ----------------------------
+        with c11:
+            st.subheader("Visualize the Micromobility Counts by Segment")
+            #TODO ADD switch for log values
+            min_percent = st.slider("Minimum percent of max count to show:", 0, 100, 10)
+            for city in agg_city:
+                if ("Seattle" == city):
+                    max = seattle_micro_streets["count"].max()
+                    make_line_map_from("count", "title", seattle_micro_streets[seattle_micro_streets["count"]>max*(min_percent/100.0)])
+                if ("Spokane" == city):
+                    max = spokane_micro_streets["count"].max()
+                    make_line_map_from("count", "title", spokane_micro_streets[spokane_micro_streets["count"]>max*(min_percent/100.0)])
 
-            filtered_data = data[data["COUNTYFP"]==get_city_id(city)].dropna(subset=agg_variable)
-            make_map_from(agg_variable, "title", filtered_data)
-                
+
+        # ----------------------------
+        # MAPS OF the census/grid data
+        # ----------------------------
+        with c12:
+            st.subheader("Visualize a variable on the map")
+            # allow the user to pick a variable
+            available_variables = ["MED_HH_INCOME", "max_count", "avg_count", "log_max_count", "log_avg_count","POP_DENSITY", "log_POP_DENSITY"]
+            agg_variable = st.selectbox(
+                "Which variable do you want to inspect?",
+                available_variables
+            )
+            # maps each city selected
+            for city in agg_city:
+
+                filtered_data = data[data["COUNTYFP"]==get_city_id(city)].dropna(subset=agg_variable)
+                make_map_from(agg_variable, "title", filtered_data)
     else:
         st.write("<- No city is selected for analysis! Select one (or more) in the sidebar to the left! ")
 
@@ -180,14 +185,109 @@ with tab1:
 # Tab 2
 # ----------------------------
 with tab2:
-    st.subheader("Lets see that ML Model!")
-    # TODO by Otto
+    st.subheader("Association of population density and median household income with micromobility usage")
+    selected_areas = data.dropna(subset=["avg_count", "POP_DENSITY", "MED_HH_INCOME", "log_avg_count"])
+    selected_areas["Seattle"] = [1 if x == "033" else 0 for x in selected_areas["COUNTYFP"]]
+
+    x_sea = selected_areas[selected_areas["Seattle"] == 1]["avg_count"]
+    x_spo = selected_areas[selected_areas["Seattle"] == 0]["avg_count"]
+
+    fig, ax = plt.subplots(figsize = (12, 4))
+    ax.boxplot([x_sea, x_spo], tick_labels = ["Seattle", "Spokane"], orientation = "horizontal")
+    ax.set(
+        ylabel = "City", 
+        xlabel = "Average Micromobility Counts",
+        title = "Distribution of Average Micromobility Usage by City"
+        )
+    st.pyplot(fig)
+
+    c21, c22 = st.columns(2)
+
+    with c21:
+        x = selected_areas["POP_DENSITY"]
+        y = selected_areas["avg_count"]
+
+        fig, ax = plt.subplots(figsize = (12, 4))
+        ax.scatter(x, y)
+        b, a = np.polyfit(x, y, deg = 1)
+        xseq = np.linspace(0, x.max(), num = 100)
+        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
+        ax.set(
+            xlabel = "Population Density", 
+            ylabel = "Average Micromobility Counts",
+            title = "Average Micromobility Usage by Population Density"
+            )
+        st.pyplot(fig)
+        
+        x = selected_areas["MED_HH_INCOME"]
+        y = selected_areas["avg_count"]
+
+        fig, ax = plt.subplots(figsize = (12, 4))
+        ax.scatter(x, y)
+        b, a = np.polyfit(x, y, deg = 1)
+        xseq = np.linspace(0, x.max(), num = 100)
+        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
+        ax.set(
+            xlabel = "Household Income", 
+            ylabel = "Average Micromobility Counts",
+            title = "Average Micromobility Usage by Median Household Income"
+            )
+        st.pyplot(fig)
+        
+    with c22:
+        x = selected_areas["POP_DENSITY"]
+        y = selected_areas["log_avg_count"]
+
+        fig, ax = plt.subplots(figsize = (12, 4))
+        ax.scatter(x, y)
+        b, a = np.polyfit(x, y, deg = 1)
+        xseq = np.linspace(0, x.max(), num = 100)
+        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
+        ax.set(
+            xlabel = "Population Density", 
+            ylabel = "Log Average Micromobility Counts",
+            title = "Log Average Micromobility Usage by Population Density"
+            )
+        st.pyplot(fig)
+        
+        x = selected_areas["MED_HH_INCOME"]
+        y = selected_areas["log_avg_count"]
+
+        fig, ax = plt.subplots(figsize = (12, 4))
+        ax.scatter(x, y)
+        b, a = np.polyfit(x, y, deg = 1)
+        xseq = np.linspace(0, x.max(), num = 100)
+        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
+        ax.set(
+            xlabel = "Population Density", 
+            ylabel = "Log Average Micromobility Counts",
+            title = "Log Average Micromobility Usage by Median Household Income"
+            )
+        st.pyplot(fig)
 
 # ----------------------------
 # Tab 3
 # ----------------------------
 with tab3:
     st.subheader("Here's a summary!")
-    # TODO by Deegan
+    def top_ten_counts(df):
+        idx = df.dropna(subset=["name","count"]).groupby("name")["count"].idxmax()
+        result = df.loc[idx].reset_index(drop=True)
+        result = result[result["name"]!=""][["name", "count"]].nlargest(10, "count")
+        st.write(result.reset_index(drop=True))
+    
+    col31, col32 = st.columns(2)
 
-    st.write(CENSUS_DATA.head())
+    with col31:
+        # Seattle 
+        st.subheader("Seattle Top 10 Streets and Trails for Micromobility Use")
+        top_ten_counts(seattle_micro_streets)
+
+    with col32:
+        # Spokane
+        st.subheader("Spokane Top 10 Streets and Trails for Micromobility Use")
+        top_ten_counts(spokane_micro_streets)
+
+    # ig?
+    st.subheader("Selected Unit Data")
+    st.write(data)
