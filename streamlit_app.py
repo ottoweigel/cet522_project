@@ -1,6 +1,3 @@
-# seattle_geo = load_geo_data("https://drive.google.com/uc?export=view&id=172kqatuR-BAc9LqpkkpFq8o7DB1bO3t0")
-# st.write('## Seattle Roads', seattle_geo.plot())
-
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
@@ -8,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import folium
 from streamlit_folium import st_folium
-import matplotlib.colors as mcolors
 import branca.colormap as cm
 
 
