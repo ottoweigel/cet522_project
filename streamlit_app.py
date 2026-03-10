@@ -199,12 +199,12 @@ with tab2:
     x_spo = selected_areas[selected_areas["Seattle"] == 0]["avg_count"]
 
     fig, ax = plt.subplots(figsize = (12, 3))
-    ax.boxplot([x_sea, x_spo], tick_labels = ["Seattle", "Spokane"], orientation = "horizontal")
+    ax.boxplot([x_sea, x_spo], labels = ["Seattle", "Spokane"], vert=False)
     ax.set(
         ylabel = "City", 
         xlabel = "Average Micromobility Counts",
         title = "Distribution of Average Micromobility Usage by City"
-        )
+    )
     st.pyplot(fig)
 
     if "Seattle" in agg_city and "Spokane" not in agg_city:
