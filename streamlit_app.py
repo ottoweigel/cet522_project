@@ -32,7 +32,7 @@ def load_data_from_path(path):
 
 @st.cache_data
 def load_geodata_from_path(path):
-    gdf = gpd.read_file(path)
+    gdf = gpd.read_file(path, engine="pyogrio")
     return  (gdf)
 
 CENSUS_DATA = load_geodata_from_path("census_data.geojson") # includes count data already
