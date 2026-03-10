@@ -77,24 +77,34 @@ col4.metric("Spokane, Number of Census Tracks", f"{0.0:,.0f}")
 # ----------------------------
 tab1, tab2, tab3 = st.tabs(["Maps", "ML Model", "Data and Summary",])
 
+# ----------------------------
+# Tab 1
+# ----------------------------
 with tab1:
-    st.subheader("Visualize those maps!")
-    
-    def make_map_from(midpoint, value, title, df):
-        m = folium.Map(location=midpoint, zoom_start=9)
+    st.subheader("Let's visualize data on our maps!")
+
+    # make a map from variables
+    def make_map_from(value, title, df):
+        minx, miny, maxx, maxy = df.total_bounds
+
+        m = folium.Map(location=[((maxy+miny)/2), ((maxx+minx)/2)], zoom_start=9)
         
         folium.Choropleth(
             geo_data=df.dropna(subset=value),
             data=df,
             columns=[df.index, value],
             key_on="feature.id",
-            fill_color="YlOrRd",
+            fill_color="YlGnBu",
             fill_opacity=0.7,
             line_opacity=0.2,
             legend_name=title
         ).add_to(m)
+
+        m.fit_bounds([[miny, minx], [maxy, maxx]]) 
+        
         st_folium(m, width=800, height=550, key=city+"_map")
     
+    # gets tract id from city name
     def get_city_id(city_name):
         match city_name:
             case "Seattle":
@@ -104,30 +114,40 @@ with tab1:
             case _:
                 return "no id implemented"
 
-    if (agg_map == "Grid"):
-        data = GRID_DATA
-    else:
-        data = CENSUS_DATA
-    
-    # map it!
+    # if a city is selected:
     if (agg_city):
+        # selects data frame
+        if (agg_map == "Grid"):
+            data = GRID_DATA
+        else:
+            data = CENSUS_DATA
+        
+        # allow the user to pick a variable
+        available_variables = ["max_count", "avg_count", "log_max_count", "log_avg_count", "POP_DENSITY_aw", "log_POP_DENSITY_aw","POP_DENSITY", "log_POP_DENSITY"]
+        available_variables = list(set(available_variables) & set(data.columns))
+        agg_variable = st.selectbox(
+            "Which variable do you want to inspect?",
+            available_variables
+        )
+        # maps each city selected
         for city in agg_city:
 
-            filtered_data = data[data["COUNTYFP"]==get_city_id(city)]
-            
-            minx, miny, maxx, maxy = filtered_data.total_bounds
-            midpoint = [(miny + (maxy-miny)/2), (minx + (maxx-minx)/2)]
-            st.write(midpoint)
-            
-            make_map_from(midpoint, "max_count", "title", filtered_data)
-            
+            filtered_data = data[data["COUNTYFP"]==get_city_id(city)].dropna(subset=agg_variable)
+            make_map_from(agg_variable, "title", filtered_data)
+                
     else:
-        st.write("No city is selected for analysis!")
+        st.write("<- No city is selected for analysis! Select one (or more) in the sidebar to the left! ")
 
+# ----------------------------
+# Tab 2
+# ----------------------------
 with tab2:
     st.subheader("Lets see that ML Model!")
     # TODO by Otto
 
+# ----------------------------
+# Tab 3
+# ----------------------------
 with tab3:
     st.subheader("Here's a summary!")
     # TODO by Deegan
