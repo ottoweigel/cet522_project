@@ -22,7 +22,9 @@ st.set_page_config(
 )
 
 st.title("Micromobility Explorer 🛴 🗺️ 🔭")
-st.caption("Explore micromobility in Seattle and Spokane!")
+st.caption("Explore micromobility in Seattle and Spokane!") 
+st.caption("Shared micromobility systems such as dockless e-scooters and bike-share programs have expanded rapidly in many U.S. cities and are often promoted as flexible, low-cost transportation options that improve first- and last-mile connectivity and reduce reliance on private automobiles. This project examines the spatial distribution of shared micromobility in Seattle and Spokane. Seattle represents a large coastal metropolitan area with a dense urban core and a more developed network of bicycles and micromobility infrastructure, while Spokane is a mid-sized inland city with a lower-density urban form and comparatively more limited cycling infrastructure. Comparing these two cities provides an opportunity to explore how micromobility availability varies across different urban contexts in Washington State.")
+
 
 # ----------------------------
 # Data loading
@@ -45,7 +47,7 @@ spokane_micro_streets = load_geodata_from_path("spokane-routes-data-for-all-vehi
 # ----------------------------
 # Sidebar controls
 # ----------------------------
-st.sidebar.header("Filters")
+st.sidebar.header("Analyis Filters")
 
 all_cities = ("Seattle", "Spokane")
 agg_city = st.sidebar.multiselect(
@@ -60,8 +62,8 @@ agg_map = st.sidebar.selectbox("Analysis Unit:", ["Census", "Grid",], index=0)
 # ----------------------------
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Seattle, Average Micromobility Count", f"${seattle_micro_streets["count"].mean():,.0f}")
-col2.metric("Spokane, Average Micromobility Count", f"${spokane_micro_streets["count"].mean():,.0f}")
+col1.metric("Seattle, Average Micromobility Segement Count", f"{seattle_micro_streets["count"].mean():,.0f}")
+col2.metric("Spokane, Average Micromobility Segement Count", f"{spokane_micro_streets["count"].mean():,.0f}")
 
 king_county_tract_num = (CENSUS_DATA["COUNTYFP"]=="033").sum()
 spokane_county_track_num = (CENSUS_DATA["COUNTYFP"]=="063").sum()
@@ -75,7 +77,7 @@ col6.metric("City of Spokane, Median Income", "$86,206")
 # ----------------------------
 # Tabs
 # ----------------------------
-tab1, tab2, tab3 = st.tabs(["Visualizing Data with Maps", "Machine Learning and Regression", "Summary",])
+tab1, tab2, tab3 = st.tabs(["Visualizing Data with Maps", "Machine Learning and Regression", "Summary and Data",])
 
 # selects data frame for analysis
 if (agg_map == "Grid"):
@@ -185,14 +187,22 @@ with tab1:
 # Tab 2
 # ----------------------------
 with tab2:
+    def make_plots(x, y):
+        fig, ax = plt.subplots(figsize = (12, 4))
+        ax.scatter(x, y)
+        b, a = np.polyfit(x, y, deg = 1)
+        xseq = np.linspace(x.min(), x.max(), num = 100)
+        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
+        return fig, ax
+    
     st.subheader("Association of population density and median household income with micromobility usage")
-    selected_areas = data.dropna(subset=["avg_count", "POP_DENSITY", "MED_HH_INCOME", "log_avg_count"])
+    selected_areas = data.dropna(subset=["avg_count", "log_POP_DENSITY", "MED_HH_INCOME", "log_avg_count", "log_POP_DENSITY"])
     selected_areas["Seattle"] = [1 if x == "033" else 0 for x in selected_areas["COUNTYFP"]]
 
     x_sea = selected_areas[selected_areas["Seattle"] == 1]["avg_count"]
     x_spo = selected_areas[selected_areas["Seattle"] == 0]["avg_count"]
 
-    fig, ax = plt.subplots(figsize = (12, 4))
+    fig, ax = plt.subplots(figsize = (12, 3))
     ax.boxplot([x_sea, x_spo], tick_labels = ["Seattle", "Spokane"], orientation = "horizontal")
     ax.set(
         ylabel = "City", 
@@ -201,69 +211,61 @@ with tab2:
         )
     st.pyplot(fig)
 
-    c21, c22 = st.columns(2)
+    if "Seattle" in agg_city and "Spokane" not in agg_city:
+        selected_areas = selected_areas[selected_areas["Seattle"] == 1]
+    elif "Spokane" in agg_city and "Seattle" not in agg_city:
+        selected_areas = selected_areas[selected_areas["Seattle"] == 0]
+    
+    if agg_city:
+        c21, c22 = st.columns(2)
+        with c21:
+            x = selected_areas["POP_DENSITY"]
+            y = selected_areas["avg_count"]
 
-    with c21:
-        x = selected_areas["POP_DENSITY"]
-        y = selected_areas["avg_count"]
-
-        fig, ax = plt.subplots(figsize = (12, 4))
-        ax.scatter(x, y)
-        b, a = np.polyfit(x, y, deg = 1)
-        xseq = np.linspace(0, x.max(), num = 100)
-        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
-        ax.set(
-            xlabel = "Population Density", 
-            ylabel = "Average Micromobility Counts",
-            title = "Average Micromobility Usage by Population Density"
+            fig, ax = make_plots(x,y)
+            ax.set(
+                xlabel = "Population Density", 
+                ylabel = "Average Micromobility Counts",
+                title = "Average Micromobility Usage by Population Density"
             )
-        st.pyplot(fig)
-        
-        x = selected_areas["MED_HH_INCOME"]
-        y = selected_areas["avg_count"]
+            st.pyplot(fig)
+            
+            
+            x = selected_areas["MED_HH_INCOME"]
+            y = selected_areas["avg_count"]
 
-        fig, ax = plt.subplots(figsize = (12, 4))
-        ax.scatter(x, y)
-        b, a = np.polyfit(x, y, deg = 1)
-        xseq = np.linspace(0, x.max(), num = 100)
-        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
-        ax.set(
-            xlabel = "Household Income", 
-            ylabel = "Average Micromobility Counts",
-            title = "Average Micromobility Usage by Median Household Income"
+            fig, ax = make_plots(x,y)
+            ax.set(
+                xlabel = "Median Household Income", 
+                ylabel = "Average Micromobility Counts",
+                title = "Average Micromobility Usage by Median Household Income"
             )
-        st.pyplot(fig)
-        
-    with c22:
-        x = selected_areas["POP_DENSITY"]
-        y = selected_areas["log_avg_count"]
+            st.pyplot(fig)
+            
+        with c22:
+            x = selected_areas["log_POP_DENSITY"]
+            y = selected_areas["log_avg_count"]
 
-        fig, ax = plt.subplots(figsize = (12, 4))
-        ax.scatter(x, y)
-        b, a = np.polyfit(x, y, deg = 1)
-        xseq = np.linspace(0, x.max(), num = 100)
-        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
-        ax.set(
-            xlabel = "Population Density", 
-            ylabel = "Log Average Micromobility Counts",
-            title = "Log Average Micromobility Usage by Population Density"
+            fig, ax = make_plots(x,y)
+            ax.set(
+                xlabel = "Log Population Density", 
+                ylabel = "Log Average Micromobility Counts",
+                title = "Log Average Micromobility Usage by Log Population Density"
             )
-        st.pyplot(fig)
-        
-        x = selected_areas["MED_HH_INCOME"]
-        y = selected_areas["log_avg_count"]
+            st.pyplot(fig)
+            
+            x = selected_areas["MED_HH_INCOME"]
+            y = selected_areas["log_avg_count"]
 
-        fig, ax = plt.subplots(figsize = (12, 4))
-        ax.scatter(x, y)
-        b, a = np.polyfit(x, y, deg = 1)
-        xseq = np.linspace(0, x.max(), num = 100)
-        ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
-        ax.set(
-            xlabel = "Population Density", 
-            ylabel = "Log Average Micromobility Counts",
-            title = "Log Average Micromobility Usage by Median Household Income"
+            fig, ax = make_plots(x,y)
+            ax.set(
+                xlabel = "Median Household Income", 
+                ylabel = "Log Average Micromobility Counts",
+                title = "Log Average Micromobility Usage by Median Household Income"
             )
-        st.pyplot(fig)
+            st.pyplot(fig)
+    else:
+        st.write("<- No city is selected for analysis! Select one (or more) in the sidebar to the left! ")
 
 # ----------------------------
 # Tab 3
@@ -288,6 +290,42 @@ with tab3:
         st.subheader("Spokane Top 10 Streets and Trails for Micromobility Use")
         top_ten_counts(spokane_micro_streets)
 
-    # ig?
-    st.subheader("Selected Unit Data")
-    st.write(data)
+    st.subheader("E/R Diagram")
+    st.image("er_diagram.jpg", use_container_width=True)
+
+    st.subheader("Limitations")
+    st.write("This analysis is subject to several data limitations. The micromobility dataset provides aggregated trip counts by street segment but does not distinguish between mode types such as e-bikes or scooters, nor does it identify specific service providers. As a result, differences in deployment patterns across micromobility modes cannot be evaluated. In addition, the dataset represents cumulative trip counts across the observation period and does not include temporal detail such as daily or hourly activity. This prevents analysis of potential differences in weekday versus weekend usage patterns.")
+    st.write("The geographic scope is also limited to Seattle and Spokane, so findings may not generalize to cities with different urban forms or transportation systems.")
+
+    st.subheader("Download Data")
+    # Convert DataFrame to CSV
+    Cesnus_csv_data = CENSUS_DATA.to_csv(index=False).encode('utf-8')
+    Grid_csv_data = CENSUS_DATA.to_csv(index=False).encode('utf-8')
+    seattle_steets_data = seattle_micro_streets.to_csv(index=False).encode('utf-8')
+    spokane_steets_data = spokane_micro_streets.to_csv(index=False).encode('utf-8')
+
+    # Create a download button
+    st.download_button(
+        label="Download Census",
+        data=Cesnus_csv_data,
+        file_name="data.csv",
+        mime="text/csv"
+    )
+    st.download_button(
+        label="Download Grid",
+        data=Grid_csv_data,
+        file_name="data.csv",
+        mime="text/csv"
+    )
+    st.download_button(
+        label="Download Seattle Streets",
+        data=seattle_steets_data,
+        file_name="data.csv",
+        mime="text/csv"
+    )
+    st.download_button(
+        label="Download Spokane Streets",
+        data=spokane_steets_data,
+        file_name="data.csv",
+        mime="text/csv"
+    )
