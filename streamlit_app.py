@@ -166,16 +166,17 @@ with tab1:
         with c12:
             st.subheader("Visualize a variable on the map")
             # allow the user to pick a variable
-            available_variables = ["MED_HH_INCOME", "max_count", "avg_count", "log_max_count", "log_avg_count","POP_DENSITY", "log_POP_DENSITY"]
+            available_variables = ["MED_HH_INCOME", "POP_DENSITY", "log_POP_DENSITY", "max_count", "avg_count", "log_max_count", "log_avg_count"]
+            variable_select = ["Median Household Income", "Population Density", "Populatation Density (log-transformed)", "Maximum Micromobility Count", "Average Micromobility Count", "Maximum Micromobility Count (log-transformed)", "Average Micromobility Count (log-transformed)"]
             agg_variable = st.selectbox(
                 "Which variable do you want to inspect?",
-                available_variables
+                variable_select
             )
             # maps each city selected
             for city in agg_city:
-
-                filtered_data = data[data["COUNTYFP"]==get_city_id(city)].dropna(subset=agg_variable)
-                make_map_from(agg_variable, "title", filtered_data)
+                var = available_variables[variable_select.index(agg_variable)]
+                filtered_data = data[data["COUNTYFP"]==get_city_id(city)].dropna(subset=var)
+                make_map_from(var, "title", filtered_data)
     else:
         st.write("<- No city is selected for analysis! Select one (or more) in the sidebar to the left! ")
 
