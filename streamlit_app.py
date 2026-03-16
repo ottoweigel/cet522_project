@@ -17,11 +17,6 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("Micromobility Explorer 🛴 🗺️ 🔭")
-st.caption("Explore micromobility in Seattle and Spokane!") 
-st.caption("Shared micromobility systems such as dockless e-scooters and bike-share programs have expanded rapidly in many U.S. cities and are often promoted as flexible, low-cost transportation options that improve first- and last-mile connectivity and reduce reliance on private automobiles. This project examines the spatial distribution of shared micromobility in Seattle and Spokane. Seattle represents a large coastal metropolitan area with a dense urban core and a more developed network of bicycles and micromobility infrastructure, while Spokane is a mid-sized inland city with a lower-density urban form and comparatively more limited cycling infrastructure. Comparing these two cities provides an opportunity to explore how micromobility availability varies across different urban contexts in Washington State.")
-
-
 # ----------------------------
 # Data loading
 # ----------------------------
@@ -40,6 +35,7 @@ GRID_DATA = load_geodata_from_path("grid_data.geojson") # includes count data al
 seattle_micro_streets = load_geodata_from_path("seattle_micro_streets.geojson").dropna(subset=["count"])
 spokane_micro_streets = load_geodata_from_path("spokane_micro_streets.geojson").dropna(subset=["count"])
 
+
 # ----------------------------
 # Sidebar controls
 # ----------------------------
@@ -53,28 +49,6 @@ agg_city = st.sidebar.multiselect(
 )
 agg_map = st.sidebar.selectbox("Analysis Unit:", ["Census", "Grid",], index=0)
 
-# ----------------------------
-# Top info + KPI cards
-# ----------------------------
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("Seattle, Average Micromobility Segement Count", f"{seattle_micro_streets["count"].mean():,.0f}")
-col2.metric("Spokane, Average Micromobility Segement Count", f"{spokane_micro_streets["count"].mean():,.0f}")
-
-king_county_tract_num = (CENSUS_DATA["COUNTYFP"]=="033").sum()
-spokane_county_track_num = (CENSUS_DATA["COUNTYFP"]=="063").sum()
-col3.metric("KING COUNTY, Number of Census Tracks", f"{king_county_tract_num:,.0f}")
-col4.metric("SPOKANE COUNTY, Number of Census Tracks", f"{spokane_county_track_num:,.0f}")
-
-col5, col6, col7, col8 = st.columns(4)
-col5.metric("City of Seattle, Median Income", "$123,860")
-col6.metric("City of Spokane, Median Income", "$86,206")
-
-# ----------------------------
-# Tabs
-# ----------------------------
-tab1, tab2, tab3 = st.tabs(["Visualizing Data with Maps", "Machine Learning and Regression", "Summary and Data",])
-
 # selects data frame for analysis
 if (agg_map == "Grid"):
     data = GRID_DATA
@@ -84,10 +58,38 @@ else:
 if list(set(["POP_DENSITY_aw", "log_POP_DENSITY_aw", 'MED_HH_INCOME_aw']) & set(data.columns)):
     data.rename(columns={"POP_DENSITY_aw":"POP_DENSITY", "log_POP_DENSITY_aw":"log_POP_DENSITY", "MED_HH_INCOME_aw":"MED_HH_INCOME"}, inplace=True)
 
+
+
 # ----------------------------
-# Tab 1
+# Intro Page
 # ----------------------------
-with tab1:
+def intro():
+    st.title("Micromobility Explorer 🛴 🗺️ 🔭")
+    st.caption("Explore micromobility in Seattle and Spokane!") 
+    st.caption("Shared micromobility systems such as dockless e-scooters and bike-share programs have expanded rapidly in many U.S. cities and are often promoted as flexible, low-cost transportation options that improve first- and last-mile connectivity and reduce reliance on private automobiles. This project examines the spatial distribution of shared micromobility in Seattle and Spokane. Seattle represents a large coastal metropolitan area with a dense urban core and a more developed network of bicycles and micromobility infrastructure, while Spokane is a mid-sized inland city with a lower-density urban form and comparatively more limited cycling infrastructure. Comparing these two cities provides an opportunity to explore how micromobility availability varies across different urban contexts in Washington State.")
+    
+    # additional data
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Seattle, Average Micromobility Segement Count", f"{seattle_micro_streets["count"].mean():,.0f}")
+    col2.metric("Spokane, Average Micromobility Segement Count", f"{spokane_micro_streets["count"].mean():,.0f}")
+
+    king_county_tract_num = (CENSUS_DATA["COUNTYFP"]=="033").sum()
+    spokane_county_track_num = (CENSUS_DATA["COUNTYFP"]=="063").sum()
+    col3.metric("KING COUNTY, Number of Census Tracks", f"{king_county_tract_num:,.0f}")
+    col4.metric("SPOKANE COUNTY, Number of Census Tracks", f"{spokane_county_track_num:,.0f}")
+
+    col5, col6, col7, col8 = st.columns(4)
+    col5.metric("City of Seattle, Median Income", "$123,860")
+    col6.metric("City of Spokane, Median Income", "$86,206")
+
+
+# ----------------------------
+# Visualization Page
+# ----------------------------
+def visualization():
+    st.title("Visualizing Data with Maps")
+
     # make a map from variables
     def make_map_from(value, title, df):
         minx, miny, maxx, maxy = df.total_bounds
@@ -180,10 +182,13 @@ with tab1:
     else:
         st.write("<- No city is selected for analysis! Select one (or more) in the sidebar to the left! ")
 
+
 # ----------------------------
-# Tab 2
+# ML Page
 # ----------------------------
-with tab2:
+def machine_learning():
+    st.title("Machine Learning and Regression")
+
     def make_plots(x, y):
         fig, ax = plt.subplots(figsize = (12, 4))
         ax.scatter(x, y)
@@ -212,7 +217,7 @@ with tab2:
         selected_areas = selected_areas[selected_areas["Seattle"] == 1]
     elif "Spokane" in agg_city and "Seattle" not in agg_city:
         selected_areas = selected_areas[selected_areas["Seattle"] == 0]
-    
+
     if agg_city:
         c21, c22 = st.columns(2)
         with c21:
@@ -265,10 +270,10 @@ with tab2:
         st.write("<- No city is selected for analysis! Select one (or more) in the sidebar to the left! ")
 
 # ----------------------------
-# Tab 3
+# Summary Page
 # ----------------------------
-with tab3:
-    st.subheader("Here's a summary!")
+def summary():
+    st.title("Summary and Data")
     def top_ten_counts(df):
         idx = df.dropna(subset=["name","count"]).groupby("name")["count"].idxmax()
         result = df.loc[idx].reset_index(drop=True)
@@ -326,3 +331,16 @@ with tab3:
         file_name="data.csv",
         mime="text/csv"
     )
+
+
+# ----------------------------
+# make the pages
+# ----------------------------
+# create pages and define navigation
+intro_page = st.Page(intro, title="Introduction")
+visual_page = st.Page(visualization, title="Visualizing Data with Maps")
+ml_page = st.Page(machine_learning, title="Machine Learning and Regression")
+summary_page = st.Page(summary, title="Summary and Data")
+
+pg = st.navigation([intro_page, visual_page, ml_page, summary_page])
+pg.run()
