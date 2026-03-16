@@ -66,7 +66,6 @@ if list(set(["POP_DENSITY_aw", "log_POP_DENSITY_aw", 'MED_HH_INCOME_aw']) & set(
 def intro():
     st.title("Micromobility Explorer 🛴 🗺️ 🔭")
     st.caption("Explore micromobility in Seattle and Spokane!") 
-    st.caption("Shared micromobility systems such as dockless e-scooters and bike-share programs have expanded rapidly in many U.S. cities and are often promoted as flexible, low-cost transportation options that improve first- and last-mile connectivity and reduce reliance on private automobiles. This project examines the spatial distribution of shared micromobility in Seattle and Spokane. Seattle represents a large coastal metropolitan area with a dense urban core and a more developed network of bicycles and micromobility infrastructure, while Spokane is a mid-sized inland city with a lower-density urban form and comparatively more limited cycling infrastructure. Comparing these two cities provides an opportunity to explore how micromobility availability varies across different urban contexts in Washington State.")
     
     # additional data
     col1, col2, col3, col4 = st.columns(4)
@@ -76,12 +75,15 @@ def intro():
 
     king_county_tract_num = (CENSUS_DATA["COUNTYFP"]=="033").sum()
     spokane_county_track_num = (CENSUS_DATA["COUNTYFP"]=="063").sum()
-    col3.metric("KING COUNTY, Number of Census Tracks", f"{king_county_tract_num:,.0f}")
-    col4.metric("SPOKANE COUNTY, Number of Census Tracks", f"{spokane_county_track_num:,.0f}")
+    col3.metric("King County, Number of Census Tracks", f"{king_county_tract_num:,.0f}")
+    col4.metric("Spokane County, Number of Census Tracks", f"{spokane_county_track_num:,.0f}")
 
     col5, col6, col7, col8 = st.columns(4)
     col5.metric("City of Seattle, Median Income", "$123,860")
     col6.metric("City of Spokane, Median Income", "$86,206")
+
+    st.write("Shared micromobility systems such as dockless e-scooters and bike-share programs have expanded rapidly in many U.S. cities and are often promoted as flexible, low-cost transportation options that improve first- and last-mile connectivity and reduce reliance on private automobiles. Because these services are typically deployed by private operators and influenced by market demand, their availability may not be evenly distributed across neighborhoods. Prior research has raised concerns that micromobility systems may concentrate in higher-income or central areas, potentially creating inequities in access to these new mobility options.")
+    st.write("This project examines the spatial distribution of shared micromobility in Seattle and Spokane. Seattle represents a large coastal metropolitan area with a dense urban core and a more developed network of bicycles and micromobility infrastructure, while Spokane is a mid-sized inland city with a lower-density urban form and comparatively more limited cycling infrastructure. Comparing these two cities provides an opportunity to explore how micromobility availability varies across different urban contexts in Washington State. The goal of this analysis is to evaluate whether shared micromobility access is distributed equitably across neighborhoods and how patterns differ between the two cities.")
 
 
 # ----------------------------
@@ -189,9 +191,10 @@ def visualization():
 def machine_learning():
     st.title("Machine Learning and Regression")
 
-    def make_plots(x, y):
+    def make_plots(x, y, cats):
         fig, ax = plt.subplots(figsize = (12, 4))
-        ax.scatter(x, y)
+        color_map = {'Seattle': 'blue', 'Spokane': 'green'}
+        ax.scatter(x, y, c=[color_map[cat] for cat in cats])
         b, a = np.polyfit(x, y, deg = 1)
         xseq = np.linspace(x.min(), x.max(), num = 100)
         ax.plot(xseq, a + b * xseq, color = "r", lw = 2.5)
@@ -199,10 +202,10 @@ def machine_learning():
     
     st.subheader("Association of population density and median household income with micromobility usage")
     selected_areas = data.dropna(subset=["avg_count", "log_POP_DENSITY", "MED_HH_INCOME", "log_avg_count", "log_POP_DENSITY"]).copy()
-    selected_areas["Seattle"] = [1 if x == "033" else 0 for x in selected_areas["COUNTYFP"]]
+    selected_areas["City"] = ["Seattle" if x == "033" else "Spokane" for x in selected_areas["COUNTYFP"]]
 
-    x_sea = selected_areas[selected_areas["Seattle"] == 1]["avg_count"]
-    x_spo = selected_areas[selected_areas["Seattle"] == 0]["avg_count"]
+    x_sea = selected_areas[selected_areas["City"] == "Seattle"]["avg_count"]
+    x_spo = selected_areas[selected_areas["City"] == "Spokane"]["avg_count"]
 
     fig, ax = plt.subplots(figsize = (12, 3))
     ax.boxplot([x_sea, x_spo], tick_labels = ["Seattle", "Spokane"], orientation = "horizontal")
@@ -214,17 +217,18 @@ def machine_learning():
     st.pyplot(fig, clear_figure=False)
 
     if "Seattle" in agg_city and "Spokane" not in agg_city:
-        selected_areas = selected_areas[selected_areas["Seattle"] == 1]
+        selected_areas = selected_areas[selected_areas["City"] == "Seattle"]
     elif "Spokane" in agg_city and "Seattle" not in agg_city:
-        selected_areas = selected_areas[selected_areas["Seattle"] == 0]
+        selected_areas = selected_areas[selected_areas["City"] == "Spokane"]
 
     if agg_city:
         c21, c22 = st.columns(2)
+        cat = selected_areas["City"]
         with c21:
             x = selected_areas["POP_DENSITY"]
             y = selected_areas["avg_count"]
 
-            fig, ax = make_plots(x,y)
+            fig, ax = make_plots(x,y,cat)
             ax.set(
                 xlabel = "Population Density", 
                 ylabel = "Average Micromobility Counts",
@@ -236,7 +240,7 @@ def machine_learning():
             x = selected_areas["MED_HH_INCOME"]
             y = selected_areas["avg_count"]
 
-            fig, ax = make_plots(x,y)
+            fig, ax = make_plots(x,y,cat)
             ax.set(
                 xlabel = "Median Household Income", 
                 ylabel = "Average Micromobility Counts",
@@ -248,7 +252,7 @@ def machine_learning():
             x = selected_areas["log_POP_DENSITY"]
             y = selected_areas["log_avg_count"]
 
-            fig, ax = make_plots(x,y)
+            fig, ax = make_plots(x,y,cat)
             ax.set(
                 xlabel = "Log Population Density", 
                 ylabel = "Log Average Micromobility Counts",
@@ -259,7 +263,7 @@ def machine_learning():
             x = selected_areas["MED_HH_INCOME"]
             y = selected_areas["log_avg_count"]
 
-            fig, ax = make_plots(x,y)
+            fig, ax = make_plots(x,y,cat)
             ax.set(
                 xlabel = "Median Household Income", 
                 ylabel = "Log Average Micromobility Counts",
